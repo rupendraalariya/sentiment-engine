@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
 
 from api.schemas import (
     BatchPredictRequest,
@@ -112,6 +113,34 @@ def _require_engine() -> SentimentInferenceEngine:
             detail="Model is not loaded. Train/mount a model and restart.",
         )
     return state.engine
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> JSONResponse:
+    """Friendly landing route that lists the available endpoints.
+
+    Visiting the API root in a browser previously returned 404 because only the
+    functional endpoints were defined. This route makes the root informative.
+    """
+    return JSONResponse(
+        {
+            "service": "Sentiment Analysis Engine",
+            "version": app.version,
+            "docs": "/docs",
+            "endpoints": {
+                "POST /predict": "Single text prediction",
+                "POST /predict/batch": "Batch prediction (max 64 texts)",
+                "GET /health": "Service health and model info",
+                "GET /metrics": "Runtime serving metrics",
+            },
+        }
+    )
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    """Return an empty 204 for favicon requests to avoid noisy 404s."""
+    return Response(status_code=204)
 
 
 @app.post("/predict", response_model=SentimentResult)
