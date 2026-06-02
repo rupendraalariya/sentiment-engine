@@ -1,0 +1,44 @@
+# ---- Core ML / NLP ----
+transformers==4.38.0
+torch>=2.0
+datasets
+scikit-learn
+pandas
+numpy
+
+# ---- Augmentation ----
+nlpaug
+sentencepiece
+sacremoses
+
+# ---- Optimization / Inference ----
+onnx
+onnxruntime
+optimum
+
+# ---- API ----
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pydantic-settings
+
+# ---- Demo UI ----
+gradio
+
+# ---- Monitoring ----
+wandb
+tensorboard
+
+# ---- Utilities ----
+python-dotenv
+tqdm
+requests
+seaborn
+matplotlib
+
+# ---- Testing / Tooling ----
+pytest
+pytest-asyncio
+httpx
+black
+mypy
