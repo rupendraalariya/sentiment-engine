@@ -1,5 +1,8 @@
 # ---- Core ML / NLP ----
-transformers==4.38.0
+# NOTE: transformers is intentionally not hard-pinned to 4.38.0 because that
+# release predates Python 3.12+ wheels and segfaults on Python 3.13/3.14 with
+# modern torch. A recent 4.x/5.x release is required for newer interpreters.
+transformers>=4.41.0
 torch>=2.0
 datasets
 scikit-learn
