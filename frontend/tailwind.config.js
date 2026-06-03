@@ -1,0 +1,65 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  darkMode: ['class'],
+  content: ['./index.html', './src/**/*.{ts,tsx,js,jsx}'],
+  theme: {
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: { '2xl': '1400px' },
+    },
+    extend: {
+      colors: {
+        primary:   { DEFAULT: '#4F46E5', foreground: '#ffffff', light: '#6366F1', dark: '#3730A3' },
+        secondary: { DEFAULT: '#7C3AED', foreground: '#ffffff', light: '#8B5CF6', dark: '#6D28D9' },
+        accent:    { DEFAULT: '#06B6D4', foreground: '#ffffff', light: '#22D3EE', dark: '#0891B2' },
+        background:{ DEFAULT: '#0F172A', card: '#1E293B', elevated: '#263348' },
+        foreground:{ DEFAULT: '#F1F5F9' },
+        muted:     { DEFAULT: '#1E293B', foreground: '#94A3B8' },
+        border:    { DEFAULT: '#334155', light: '#475569' },
+        positive:  { DEFAULT: '#22C55E', light: '#4ADE80', dark: '#16A34A', bg: '#14532D' },
+        negative:  { DEFAULT: '#EF4444', light: '#F87171', dark: '#DC2626', bg: '#7F1D1D' },
+        'neutral-sentiment': { DEFAULT: '#F59E0B', light: '#FCD34D', dark: '#D97706', bg: '#78350F' },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+      },
+      animation: {
+        'float':        'float 6s ease-in-out infinite',
+        'pulse-glow':   'pulse-glow 2s ease-in-out infinite',
+        'shimmer':      'shimmer 2s linear infinite',
+        'gradient-x':   'gradient-x 4s ease infinite',
+        'slide-up':     'slide-up 0.5s ease-out',
+        'fade-in':      'fade-in 0.4s ease-out',
+        'spin-slow':    'spin 8s linear infinite',
+        'bounce-slow':  'bounce 3s infinite',
+        'count-up':     'count-up 1s ease-out',
+      },
+      keyframes: {
+        float:       { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-12px)' } },
+        'pulse-glow':{ '0%,100%': { opacity: '1', boxShadow: '0 0 20px rgba(79,70,229,0.4)' }, '50%': { opacity: '0.8', boxShadow: '0 0 40px rgba(79,70,229,0.8)' } },
+        shimmer:     { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
+        'gradient-x':{ '0%,100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },
+        'slide-up':  { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        'fade-in':   { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        'count-up':  { '0%': { opacity: '0', transform: 'scale(0.5)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic':  'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'grid-pattern':    "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23334155' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+      },
+      backdropBlur: { xs: '2px' },
+      boxShadow: {
+        'glow-primary':  '0 0 30px rgba(79,70,229,0.4)',
+        'glow-accent':   '0 0 30px rgba(6,182,212,0.4)',
+        'glow-positive': '0 0 20px rgba(34,197,94,0.3)',
+        'glow-negative': '0 0 20px rgba(239,68,68,0.3)',
+        'glass':         '0 8px 32px rgba(0,0,0,0.3)',
+        'card':          '0 4px 24px rgba(0,0,0,0.4)',
+      },
+    },
+  },
+  plugins: [require('tailwindcss-animate')],
+}
