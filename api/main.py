@@ -31,6 +31,7 @@ from config import get_settings
 from src.inference import SentimentInferenceEngine
 from src.lexicon_sentiment import LexiconSentimentEngine
 from src.logging_utils import get_logger
+from api.routers.dashboard import router as dashboard_router
 
 logger = get_logger(__name__)
 
@@ -92,6 +93,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(dashboard_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -136,11 +139,13 @@ async def root() -> JSONResponse:
             "service": "Sentiment Analysis Engine",
             "version": app.version,
             "docs": "/docs",
+            "dashboard": "/dashboard",
             "endpoints": {
                 "POST /predict": "Single text prediction",
                 "POST /predict/batch": "Batch prediction (max 64 texts)",
                 "GET /health": "Service health and model info",
                 "GET /metrics": "Runtime serving metrics",
+                "GET /dashboard": "Live monitoring dashboard",
             },
         }
     )

@@ -28,55 +28,25 @@ class BatchPredictRequest(BaseModel):
         ...,
         min_length=1,
         max_length=64,
-        description="List of input texts to classify (1-64 items).",
-    )
-
-
-class SentenceSentiment(BaseModel):
-    """Sentiment result for a single sentence (Google Cloud NLP)."""
-
-    text: str = Field(..., description="The sentence text.")
-    score: float = Field(
-        ..., ge=-1.0, le=1.0,
-        description="Sentiment score (-1.0 = negative, 1.0 = positive).",
-    )
-    magnitude: float = Field(
-        ..., ge=0.0,
-        description="Sentiment magnitude (strength of emotion).",
-    )
-    label: SentimentLabel = Field(
-        ..., description="Derived sentiment label for this sentence.",
+        description="List of input texts to classify (1–64 items).",
     )
 
 
 class SentimentResult(BaseModel):
     """Prediction result for a single text."""
 
-    label: SentimentLabel = Field(..., description="Predicted sentiment label.")
+    label: SentimentLabel = Field(
+        ..., description="Predicted sentiment label."
+    )
     confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Probability of the predicted label."
+        ..., ge=0.0, le=1.0,
+        description="Probability of the predicted label (0–1).",
     )
     scores: dict[str, float] = Field(
-        ..., description="Probability for every class."
-    )
-    gcnl_score: float | None = Field(
-        default=None,
-        ge=-1.0, le=1.0,
-        description="Google Cloud NLP sentiment score (-1.0 to 1.0). "
-                    "Present only when the Google NLP backend is active.",
-    )
-    gcnl_magnitude: float | None = Field(
-        default=None,
-        ge=0.0,
-        description="Google Cloud NLP sentiment magnitude (strength). "
-                    "Present only when the Google NLP backend is active.",
-    )
-    sentences: list[SentenceSentiment] | None = Field(
-        default=None,
-        description="Per-sentence sentiment breakdown (Google Cloud NLP).",
+        ..., description="Probability for every class: negative, neutral, positive.",
     )
     processing_time_ms: float = Field(
-        ..., ge=0.0, description="Server-side processing time in milliseconds."
+        ..., ge=0.0, description="Server-side inference time in milliseconds.",
     )
 
 
@@ -85,22 +55,22 @@ class BatchPredictResponse(BaseModel):
 
     results: list[SentimentResult] = Field(..., description="Per-text results.")
     total_time_ms: float = Field(
-        ..., ge=0.0, description="Total batch processing time in milliseconds."
+        ..., ge=0.0, description="Total batch processing time in milliseconds.",
     )
 
 
 class HealthResponse(BaseModel):
-    """Response body for the health check endpoint."""
+    """Response body for the health-check endpoint."""
 
-    status: str
-    model: str
-    device: str
+    status: str = Field(..., description="'ok' or 'degraded'.")
+    model: str = Field(..., description="Active model or engine name.")
+    device: str = Field(..., description="Compute device: cpu, cuda, or lexicon.")
 
 
 class MetricsResponse(BaseModel):
     """Response body for the runtime metrics endpoint."""
 
-    total_predictions: int
-    average_latency_ms: float
-    predictions_per_second: float
-    uptime_seconds: float
+    total_predictions: int = Field(..., description="Predictions served since startup.")
+    average_latency_ms: float = Field(..., description="Mean inference latency (ms).")
+    predictions_per_second: float = Field(..., description="Throughput since startup.")
+    uptime_seconds: float = Field(..., description="Server uptime in seconds.")
