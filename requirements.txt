@@ -25,6 +25,9 @@ uvicorn[standard]
 pydantic>=2.0
 pydantic-settings
 
+# ---- Google Cloud NLP ----
+google-cloud-language>=2.0
+
 # ---- Demo UI ----
 gradio
 

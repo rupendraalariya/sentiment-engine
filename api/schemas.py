@@ -32,6 +32,23 @@ class BatchPredictRequest(BaseModel):
     )
 
 
+class SentenceSentiment(BaseModel):
+    """Sentiment result for a single sentence (Google Cloud NLP)."""
+
+    text: str = Field(..., description="The sentence text.")
+    score: float = Field(
+        ..., ge=-1.0, le=1.0,
+        description="Sentiment score (-1.0 = negative, 1.0 = positive).",
+    )
+    magnitude: float = Field(
+        ..., ge=0.0,
+        description="Sentiment magnitude (strength of emotion).",
+    )
+    label: SentimentLabel = Field(
+        ..., description="Derived sentiment label for this sentence.",
+    )
+
+
 class SentimentResult(BaseModel):
     """Prediction result for a single text."""
 
@@ -41,6 +58,22 @@ class SentimentResult(BaseModel):
     )
     scores: dict[str, float] = Field(
         ..., description="Probability for every class."
+    )
+    gcnl_score: float | None = Field(
+        default=None,
+        ge=-1.0, le=1.0,
+        description="Google Cloud NLP sentiment score (-1.0 to 1.0). "
+                    "Present only when the Google NLP backend is active.",
+    )
+    gcnl_magnitude: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Google Cloud NLP sentiment magnitude (strength). "
+                    "Present only when the Google NLP backend is active.",
+    )
+    sentences: list[SentenceSentiment] | None = Field(
+        default=None,
+        description="Per-sentence sentiment breakdown (Google Cloud NLP).",
     )
     processing_time_ms: float = Field(
         ..., ge=0.0, description="Server-side processing time in milliseconds."

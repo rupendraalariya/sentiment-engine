@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sentiment Analyzer</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --positive: #10b981;
+            --negative: #ef4444;
+            --neutral: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Glassmorphism Container */
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            resize: none;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+            transform: scale(1.02);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Result Area */
+        #result-container {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .sentiment-positive {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--positive);
+        }
+
+        .sentiment-negative {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--negative);
+        }
+
+        .sentiment-neutral {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: var(--neutral);
+        }
+
+        #result-badge {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        #result-reasoning {
+            margin-top: 10px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>AI Sentiment Analyzer</h1>
+        <p class="subtitle">Powered by Puter.js (Zero API Keys Required)</p>
+        
+        <textarea id="inputText" placeholder="Type a review, tweet, or any text here to analyze its sentiment..."></textarea>
+        
+        <button id="analyzeBtn" onclick="analyzeSentiment()">
+            <span id="btnText">Analyze Sentiment</span>
+            <div id="loadingSpinner" class="loader"></div>
+        </button>
+
+        <div id="result-container">
+            <div id="result-badge"></div>
+            <div id="result-reasoning"></div>
+        </div>
+    </div>
+
+    <!-- Puter.js SDK -->
+    <script src="https://js.puter.com/v2/"></script>
+    
+    <script>
+        async function analyzeSentiment() {
+            const text = document.getElementById("inputText").value.trim();
+            const btn = document.getElementById("analyzeBtn");
+            const btnText = document.getElementById("btnText");
+            const spinner = document.getElementById("loadingSpinner");
+            const resultContainer = document.getElementById("result-container");
+            const badge = document.getElementById("result-badge");
+            const reasoning = document.getElementById("result-reasoning");
+
+            if (!text) {
+                alert("Please enter some text to analyze!");
+                return;
+            }
+
+            // UI Loading State
+            btn.disabled = true;
+            btnText.style.display = "none";
+            spinner.style.display = "block";
+            resultContainer.style.display = "none";
+
+            // Prompt structured to get a JSON response for advanced analysis
+            const prompt = `Analyze the sentiment of the following text. Return your response as a JSON object with these fields:
+            - sentiment: "positive", "negative", or "neutral"
+            - reasoning: brief explanation of the sentiment
+            
+            Text: ${text}
+            
+            Respond only with valid JSON, no additional text or markdown formatting.`;
+
+            try {
+                // Call Puter.js chat API
+                const response = await puter.ai.chat(prompt, { model: "gpt-5-nano" });
+                
+                // Parse the response
+                let result;
+                try {
+                    result = JSON.parse(response.toString().trim());
+                } catch(e) {
+                    // Fallback parsing if the model included markdown blocks like ```json ... ```
+                    const jsonMatch = response.toString().match(/\{[\s\S]*\}/);
+                    result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                }
+
+                if (result && result.sentiment) {
+                    // Display results
+                    badge.textContent = result.sentiment;
+                    reasoning.textContent = result.reasoning;
+
+                    // Update styling based on sentiment
+                    resultContainer.className = `sentiment-${result.sentiment.toLowerCase()}`;
+                    resultContainer.style.display = "block";
+                } else {
+                    throw new Error("Invalid response format");
+                }
+            } catch (error) {
+                console.error("Error analyzing sentiment:", error);
+                alert("An error occurred during sentiment analysis. Please try again.");
+            } finally {
+                // Reset UI State
+                btn.disabled = false;
+                btnText.style.display = "block";
+                spinner.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>

@@ -70,8 +70,36 @@ class SentimentInferenceEngine:
                 "first or mount the weights volume."
             )
 
+        # If the model was bootstrapped (random weights), raise so the API
+        # falls back to the lexicon engine.
+        flag = self.model_dir / "lexicon_mode.flag"
+        if flag.exists():
+            raise RuntimeError(
+                "Bootstrap (untrained) model detected. "
+                "Run `python -m scripts.download_pretrained` to load a "
+                "fine-tuned sentiment model."
+            )
+
         self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_dir))
-        self.model_name = get_settings().MODEL_NAME
+        # Read model name from saved config.json if present.
+        import json as _json
+        _cfg_path = self.model_dir / "config.json"
+        _cfg_raw = _json.loads(_cfg_path.read_text(encoding="utf-8")) if _cfg_path.exists() else {}
+        self.model_name = _cfg_raw.get("_name_or_path", get_settings().MODEL_NAME)
+
+        # Read optional sentiment_meta.json for neutral-threshold logic.
+        _meta_path = self.model_dir / "sentiment_meta.json"
+        if _meta_path.exists():
+            meta = _json.loads(_meta_path.read_text(encoding="utf-8"))
+            self._neutral_threshold: float = float(meta.get("neutral_threshold", 1.0))
+            self._three_class: bool = bool(meta.get("three_class", False))
+            self._label_remap: dict = {
+                k.lower(): v.lower() for k, v in meta.get("label_remap", {}).items()
+            }
+        else:
+            self._neutral_threshold = 1.0   # disabled
+            self._three_class = False
+            self._label_remap = {}
 
         onnx_path = self.model_dir / "model.onnx"
         if onnx_path.exists():
@@ -79,10 +107,15 @@ class SentimentInferenceEngine:
         else:
             self._load_pytorch()
 
+        # Build id->label from the loaded model config so this works with any
+        # pretrained model, not just the training-time bert-base-uncased.
+        self._id2label: dict[int, str] = self._resolve_id2label()
+
         logger.info(
-            "Inference engine ready (backend=%s, device=%s).",
+            "Inference engine ready (backend=%s, device=%s, labels=%s).",
             self.backend,
             self.device,
+            self._id2label,
         )
 
     # ------------------------------------------------------------------ #
@@ -109,6 +142,34 @@ class SentimentInferenceEngine:
         self._model.backbone.to(self.device)
         self._model.backbone.eval()
         self.backend = "pytorch"
+
+    def _resolve_id2label(self) -> dict[int, str]:
+        """Read the id->label mapping from the loaded model config.
+
+        Falls back to the global ``ID2LABEL`` from config if the model config
+        does not carry a valid mapping.  This makes the engine work with any
+        pretrained HF classification model, not just those trained in this
+        project.
+        """
+        cfg = None
+        if self._model is not None and hasattr(self._model, "backbone"):
+            cfg = self._model.backbone.config
+        elif self._session is not None:
+            # ONNX session — try reading the saved config.json alongside it.
+            import json
+
+            cfg_path = self.model_dir / "config.json"
+            if cfg_path.exists():
+                raw = json.loads(cfg_path.read_text(encoding="utf-8"))
+                id2label_raw = raw.get("id2label", {})
+                if id2label_raw:
+                    return {int(k): str(v) for k, v in id2label_raw.items()}
+
+        if cfg is not None and hasattr(cfg, "id2label") and cfg.id2label:
+            return {int(k): str(v).lower() for k, v in cfg.id2label.items()}
+
+        logger.warning("Could not read id2label from model config; using defaults.")
+        return dict(ID2LABEL)
 
     def _load_onnx(self, onnx_path: Path) -> None:
         """Load the ONNX model into an ``onnxruntime`` session."""
@@ -166,12 +227,60 @@ class SentimentInferenceEngine:
         return probs.cpu().numpy()
 
     def _build_result(self, probs: np.ndarray, elapsed_ms: float) -> SentimentResult:
-        """Convert a probability vector to a :class:`SentimentResult`."""
-        best_idx = int(np.argmax(probs))
-        scores = {ID2LABEL[i]: float(probs[i]) for i in range(len(probs))}
+        """Convert a probability vector to a :class:`SentimentResult`.
+
+        When ``sentiment_meta.json`` is present and ``three_class=True``, a
+        binary (pos/neg) model is extended to 3-class by treating low-confidence
+        predictions as neutral.
+        """
+        valid = {"positive", "negative", "neutral"}
+
+        if self._three_class and len(probs) == 2:
+            # Binary model + neutral-threshold extension.
+            best_src_idx = int(np.argmax(probs))
+            best_prob = float(probs[best_src_idx])
+            src_label = self._id2label.get(best_src_idx, str(best_src_idx)).lower()
+            mapped = self._label_remap.get(src_label, src_label)
+
+            if best_prob < self._neutral_threshold:
+                label = "neutral"
+                # Redistribute: neutral gets the "uncertainty mass".
+                neg_p = float(probs[0]) * self._neutral_threshold
+                pos_p = float(probs[1]) * self._neutral_threshold
+                neu_p = 1.0 - neg_p - pos_p
+                scores = {
+                    "negative": round(neg_p, 4),
+                    "neutral": round(max(neu_p, 0.0), 4),
+                    "positive": round(pos_p, 4),
+                }
+                confidence = scores["neutral"]
+            else:
+                label = mapped if mapped in valid else "neutral"
+                # Scale down the non-neutral classes proportionally.
+                neg_p = float(probs[0])
+                pos_p = float(probs[1])
+                scores = {
+                    "negative": round(neg_p, 4),
+                    "neutral": round(0.0, 4),
+                    "positive": round(pos_p, 4),
+                }
+                confidence = best_prob
+        else:
+            # Standard multi-class model.
+            best_idx = int(np.argmax(probs))
+            num_labels = len(probs)
+            scores = {
+                self._id2label.get(i, str(i)): float(probs[i])
+                for i in range(num_labels)
+            }
+            label = self._id2label.get(best_idx, str(best_idx))
+            if label not in valid:
+                label = "neutral"
+            confidence = float(probs[best_idx])
+
         return SentimentResult(
-            label=ID2LABEL[best_idx],  # type: ignore[arg-type]
-            confidence=float(probs[best_idx]),
+            label=label,  # type: ignore[arg-type]
+            confidence=round(confidence, 4),
             scores=scores,
             processing_time_ms=round(elapsed_ms, 3),
         )

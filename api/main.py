@@ -29,16 +29,20 @@ from api.schemas import (
 )
 from config import get_settings
 from src.inference import SentimentInferenceEngine
+from src.lexicon_sentiment import LexiconSentimentEngine
 from src.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+# Union type for either backend.
+_Engine = SentimentInferenceEngine | LexiconSentimentEngine
 
 
 class _ServingState:
     """Mutable runtime state shared across requests."""
 
     def __init__(self) -> None:
-        self.engine: SentimentInferenceEngine | None = None
+        self.engine: _Engine | None = None
         self.start_time: float = time.time()
         self.total_predictions: int = 0
         self.total_latency_ms: float = 0.0
@@ -62,11 +66,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             device="auto",
             max_length=settings.MAX_LENGTH,
         )
-        logger.info("Inference engine loaded at startup.")
+        logger.info("BERT inference engine loaded at startup.")
     except Exception as exc:  # noqa: BLE001
-        # Keep the app alive so /health can report status; predictions 503.
-        logger.error("Failed to load inference engine: %s", exc)
-        state.engine = None
+        logger.warning(
+            "BERT engine failed to load (%s). "
+            "Falling back to lexicon-based engine.",
+            exc,
+        )
+        state.engine = LexiconSentimentEngine()
+        logger.info("Lexicon sentiment engine active. "
+                    "Run `python -m scripts.download_pretrained` for BERT.")
     state.start_time = time.time()
     yield
     logger.info("Shutting down; serving stopped.")
@@ -75,7 +84,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Sentiment Analysis Engine",
-    description="BERT-based 3-class sentiment classification API.",
+    description=(
+        "BERT / RoBERTa-based 3-class sentiment classification API "
+        "(negative / neutral / positive)."
+    ),
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -105,23 +117,20 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-def _require_engine() -> SentimentInferenceEngine:
+def _require_engine() -> _Engine:
     """Return the loaded engine or raise a 503 if unavailable."""
     if state.engine is None:
         raise HTTPException(
             status_code=503,
-            detail="Model is not loaded. Train/mount a model and restart.",
+            detail="No engine loaded. Run `python -m scripts.download_pretrained` "
+                   "then restart the server.",
         )
     return state.engine
 
 
 @app.get("/", include_in_schema=False)
 async def root() -> JSONResponse:
-    """Friendly landing route that lists the available endpoints.
-
-    Visiting the API root in a browser previously returned 404 because only the
-    functional endpoints were defined. This route makes the root informative.
-    """
+    """Friendly landing page listing available endpoints."""
     return JSONResponse(
         {
             "service": "Sentiment Analysis Engine",
@@ -139,7 +148,7 @@ async def root() -> JSONResponse:
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> Response:
-    """Return an empty 204 for favicon requests to avoid noisy 404s."""
+    """Return 204 for favicon requests to suppress browser 404s."""
     return Response(status_code=204)
 
 
@@ -178,17 +187,21 @@ async def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
 
     total_ms = (time.perf_counter() - start) * 1000.0
     state.record(len(results), total_ms)
-    return BatchPredictResponse(results=list(results), total_time_ms=round(total_ms, 3))
+    return BatchPredictResponse(
+        results=list(results), total_time_ms=round(total_ms, 3)
+    )
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Return service health and basic model info."""
     engine = state.engine
+    if engine is None:
+        return HealthResponse(status="degraded", model="none", device="none")
     return HealthResponse(
-        status="ok" if engine is not None else "degraded",
-        model=engine.model_name if engine else get_settings().MODEL_NAME,
-        device=engine.device if engine else "none",
+        status="ok",
+        model=engine.model_name,
+        device=engine.device,
     )
 
 
